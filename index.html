@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3D 跑酷：Boss 戰役</title>
+    <title>Mob Run: Single Gate Hardcore</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: 'Arial Black', sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #1a1a2e; font-family: 'Arial Black', sans-serif; }
         
-        /* UI 介面 */
-        #ui-container {
+        /* 遊戲介面 UI */
+        #ui-layer {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none;
@@ -17,57 +17,78 @@
             align-items: center;
         }
 
-        #mob-count {
-            margin-top: 20px;
-            font-size: 50px;
-            color: #00e5ff;
-            -webkit-text-stroke: 2px #006064;
-            text-shadow: 3px 3px 0px rgba(0,0,0,0.3);
+        #count-display {
+            margin-top: 30px;
+            font-size: 60px;
+            color: #00fff2;
+            text-shadow: 0 0 15px #00fff2;
         }
 
-        #boss-ui {
-            display: none; /* 只有打王時顯示 */
+        #level-progress {
+            margin-top: 10px;
+            font-size: 18px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        /* Boss 血條區域 */
+        #boss-hud {
+            display: none; /* 戰鬥開始才顯示 */
             position: absolute;
-            top: 100px;
-            width: 80%;
-            max-width: 600px;
+            top: 150px;
+            width: 60%;
+            text-align: center;
         }
-
+        
         #boss-hp-bar {
             width: 100%;
-            height: 30px;
-            background: #333;
-            border: 3px solid white;
-            border-radius: 15px;
+            height: 40px;
+            background: #444;
+            border: 4px solid #fff;
+            border-radius: 20px;
             overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
         }
 
         #boss-hp-fill {
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, #ff0000, #ff5252);
-            transition: width 0.1s;
+            background: linear-gradient(90deg, #ff0055, #ff5500);
+            transition: width 0.2s;
         }
 
-        #boss-name {
-            text-align: center;
-            color: #ff5252;
-            font-size: 24px;
-            margin-bottom: 5px;
-            text-shadow: 1px 1px 2px black;
+        #boss-text {
+            color: #ff0055;
+            font-size: 30px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #ff0055;
         }
 
-        #game-over {
+        /* 遊戲結束文字 */
+        #end-screen {
             display: none;
             position: absolute;
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 60px;
-            color: white;
-            text-shadow: 0 0 10px black;
             text-align: center;
+            z-index: 100;
+        }
+        
+        #end-title {
+            font-size: 80px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+        
+        .victory { color: #00ff00; text-shadow: 0 0 30px #00ff00; }
+        .defeat { color: #ff0000; text-shadow: 0 0 30px #ff0000; }
+
+        #restart-btn {
+            background: white; color: black; padding: 15px 40px;
+            font-size: 24px; border: none; cursor: pointer; pointer-events: auto;
+            border-radius: 5px;
         }
     </style>
+    
     <script type="importmap">
         {
             "imports": {
@@ -78,365 +99,405 @@
 </head>
 <body>
 
-    <div id="ui-container">
-        <div id="mob-count">34</div>
-        <div id="boss-ui">
-            <div id="boss-name">FINAL BOSS (2000 HP)</div>
+    <div id="ui-layer">
+        <div id="count-display">34</div>
+        <div id="level-progress">即將抵達 BOSS...</div>
+        
+        <div id="boss-hud">
+            <div id="boss-text">MEGA BOSS</div>
             <div id="boss-hp-bar"><div id="boss-hp-fill"></div></div>
         </div>
-        <div id="game-over"></div>
+
+        <div id="end-screen">
+            <div id="end-title"></div>
+            <button id="restart-btn" onclick="location.reload()">RETRY</button>
+        </div>
     </div>
 
     <script type="module">
         import * as THREE from 'three';
 
-        // --- 遊戲設定 ---
+        // ================= 配置參數 =================
         const CONFIG = {
-            maxInstances: 20000, // 最大人數 (GPU緩衝區)
+            maxCount: 20000,      // 最大支持人數 (GPU優化)
             startCount: 34,
-            gateCount: 30,       // 總共幾道門
-            gateInterval: 40,    // 門的間距
-            runSpeed: 0.6,
-            laneWidth: 14,       // 跑道寬度
-            bossHP: 2000,
-            damagePerUnit: 0.3
+            gateTotal: 30,        // 30 扇門
+            gateSpacing: 60,      // 每扇門的距離 (拉長一點，避免太擁擠)
+            laneWidth: 20,        // 跑道總寬度
+            runSpeed: 0.8,        // 前進速度
+            bossHP: 2000,         // Boss 血量
+            damagePerUnit: 0.3    // 一個人造成的傷害
         };
 
-        // 狀態管理
-        let state = 'RUNNING'; // 'RUNNING', 'BOSS_FIGHT', 'ENDED'
+        // ================= 遊戲狀態 =================
+        let gameState = 'RUNNING'; // 'RUNNING', 'BOSS', 'OVER'
         let mobCount = CONFIG.startCount;
-        let playerZ = 0; // 玩家前進距離 (負數往前)
-        let playerX = 0; // 玩家左右位置
-        let targetX = 0; // 滑鼠目標位置
+        let playerZ = 0;
+        let playerX = 0;
+        let targetX = 0;
+        let bossRef = null;
+        let bossCurrentHP = CONFIG.bossHP;
 
-        // --- Three.js 初始化 ---
+        // UI 元素
+        const uiCount = document.getElementById('count-display');
+        const uiProgress = document.getElementById('level-progress');
+        const uiBossHud = document.getElementById('boss-hud');
+        const uiBossFill = document.getElementById('boss-hp-fill');
+        const uiEndScreen = document.getElementById('end-screen');
+        const uiEndTitle = document.getElementById('end-title');
+
+        // ================= THREE.JS 場景設置 =================
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB);
-        scene.fog = new THREE.Fog(0x87CEEB, 30, 90);
+        scene.background = new THREE.Color(0x1a1a2e);
+        scene.fog = new THREE.Fog(0x1a1a2e, 40, 120);
 
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
-        camera.position.set(0, 15, 20);
-        camera.lookAt(0, 0, 5);
-
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 300);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
         // 燈光
-        const ambiLight = new THREE.AmbientLight(0xffffff, 0.7);
-        scene.add(ambiLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(10, 30, 10);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0x00fff2, 1.5); // 霓虹藍光
+        dirLight.position.set(20, 50, 20);
         dirLight.castShadow = true;
         scene.add(dirLight);
 
-        // 地板 (跑道)
-        // 為了節省資源，地板跟著玩家移動
-        const floorGeo = new THREE.PlaneGeometry(CONFIG.laneWidth + 20, 200);
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0xe0e0e0 });
+        // 地板 (Grid 風格)
+        const gridHelper = new THREE.GridHelper(200, 50, 0x00fff2, 0x333333);
+        gridHelper.position.y = 0;
+        scene.add(gridHelper);
+        
+        // 實體地板 (接收陰影)
+        const floorGeo = new THREE.PlaneGeometry(200, 1000);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
+        floor.position.z = -200; // 稍微往前放
         floor.receiveShadow = true;
         scene.add(floor);
 
-        // --- 人群系統 (InstancedMesh) ---
-        const unitGeo = new THREE.CylinderGeometry(0.3, 0.3, 1.2, 8);
-        unitGeo.translate(0, 0.6, 0);
-        const unitMat = new THREE.MeshLambertMaterial({ color: 0x00e5ff });
-        const mesh = new THREE.InstancedMesh(unitGeo, unitMat, CONFIG.maxInstances);
-        mesh.frustumCulled = false; // 關鍵修正：防止人群在畫面邊緣消失
-        mesh.castShadow = true;
-        scene.add(mesh);
+        // ================= 人群系統 (InstancedMesh) =================
+        // 這是解決效能與消失問題的關鍵
+        const mobGeo = new THREE.CylinderGeometry(0.2, 0.2, 1, 8);
+        mobGeo.translate(0, 0.5, 0); // 調整中心點
+        const mobMat = new THREE.MeshLambertMaterial({ color: 0x00fff2 });
+        const mobMesh = new THREE.InstancedMesh(mobGeo, mobMat, CONFIG.maxCount);
+        
+        // ★★★ 關鍵修復：關閉視錐體剔除，防止消失 ★★★
+        mobMesh.frustumCulled = false; 
+        
+        mobMesh.castShadow = true;
+        scene.add(mobMesh);
 
-        const dummy = new THREE.Object3D();
-        // 預先計算好的隨機偏移量，形成圓形隊伍
-        const offsets = [];
-        for(let i=0; i<CONFIG.maxInstances; i++) {
+        // 預先計算每個單位的隨機偏移 (圓形分佈)
+        const mobOffsets = [];
+        for (let i = 0; i < CONFIG.maxCount; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const r = Math.sqrt(Math.random()); // 均勻分佈
-            offsets.push({
-                x: Math.cos(angle) * r,
+            const r = Math.sqrt(Math.random()) * 0.8; // 0.8 是基礎半徑係數
+            mobOffsets.push({ 
+                x: Math.cos(angle) * r, 
                 z: Math.sin(angle) * r,
-                speed: 0.1 + Math.random() * 0.1, // 打王時的攻擊速度
-                dead: false // 打王時是否已犧牲
+                speed: 1 + Math.random(), // 攻擊時的飛行速度
+                active: i < CONFIG.startCount
             });
         }
 
-        // --- 關卡物件 (門) ---
+        const dummy = new THREE.Object3D();
+
+        // ================= 閘門系統 (單一門) =================
         const gates = [];
         const gateGroup = new THREE.Group();
         scene.add(gateGroup);
 
-        function createGateTexture(text, isGood) {
+        function createGateTexture(text) {
             const cvs = document.createElement('canvas');
             cvs.width = 256; cvs.height = 128;
             const ctx = cvs.getContext('2d');
-            ctx.fillStyle = isGood ? 'rgba(0, 100, 255, 0.6)' : 'rgba(255, 50, 50, 0.6)';
+            
+            // 漸層背景
+            const grad = ctx.createLinearGradient(0,0,0,128);
+            grad.addColorStop(0, 'rgba(0, 255, 242, 0.8)');
+            grad.addColorStop(1, 'rgba(0, 100, 200, 0.4)');
+            
+            ctx.fillStyle = grad;
             ctx.fillRect(0,0,256,128);
-            ctx.strokeStyle = "white";
-            ctx.lineWidth = 10;
-            ctx.strokeRect(0,0,256,128);
+            
+            // 文字
             ctx.fillStyle = "white";
-            ctx.font = "bold 80px Arial";
+            ctx.font = "bold 90px Arial";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText(text, 128, 64);
+            
+            // 邊框
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = "white";
+            ctx.strokeRect(0,0,256,128);
+
             return new THREE.CanvasTexture(cvs);
         }
 
-        // 生成關卡
-        function generateLevel() {
-            for (let i = 1; i <= CONFIG.gateCount; i++) {
-                const zPos = -i * CONFIG.gateInterval;
+        function initLevel() {
+            for (let i = 1; i <= CONFIG.gateTotal; i++) {
+                // Z位置：每隔 gateSpacing 出現一個
+                const zPos = -i * CONFIG.gateSpacing;
                 
-                // 門的邏輯
-                const isLeft = Math.random() > 0.5;
-                const type = Math.random() > 0.6 ? 'mult' : 'add'; // 40% 機率是乘法
-                
-                let val, text;
-                if(type === 'mult') {
-                    val = Math.floor(Math.random() * 3) + 2; // x2 ~ x4
+                // 數值生成邏輯：越後面越難/倍率越高
+                let type = Math.random() > 0.4 ? 'mult' : 'add';
+                let val;
+                let text;
+
+                if (type === 'mult') {
+                    val = Math.floor(Math.random() * 3) + 2; // x2, x3, x4
                     text = "x" + val;
                 } else {
-                    val = Math.floor(Math.random() * 50) + 10; // +10 ~ +60
+                    val = Math.floor(Math.random() * 50) + 20; // +20 ~ +70
                     text = "+" + val;
                 }
 
-                // 創建門的模型
-                const gateGeo = new THREE.BoxGeometry(6, 4, 0.5);
-                const gateMat = new THREE.MeshBasicMaterial({ map: createGateTexture(text, true), transparent: true });
-                const gate = new THREE.Mesh(gateGeo, gateMat);
+                const geo = new THREE.BoxGeometry(6, 4, 0.5);
+                const mat = new THREE.MeshBasicMaterial({ 
+                    map: createGateTexture(text),
+                    transparent: true,
+                    opacity: 0.9
+                });
+                const gate = new THREE.Mesh(geo, mat);
+
+                // X位置：隨機分配在 左(-5), 中(0), 右(5)
+                const lane = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
+                gate.position.set(lane * 5, 2, zPos);
                 
-                // 位置：左(-3.5) 或 右(3.5)
-                gate.position.set(isLeft ? -3.5 : 3.5, 2, zPos);
-                gate.userData = { type: type, value: val, hit: false, id: i };
-                
+                gate.userData = { type: type, val: val, hit: false };
                 gateGroup.add(gate);
                 gates.push(gate);
-
-                // 在另一邊生成一個較差的選項
-                const badVal = Math.floor(Math.random() * 10) + 1;
-                const badGateMat = new THREE.MeshBasicMaterial({ map: createGateTexture("+" + badVal, false), transparent: true });
-                const badGate = new THREE.Mesh(gateGeo, badGateMat);
-                badGate.position.set(isLeft ? 3.5 : -3.5, 2, zPos);
-                badGate.userData = { type: 'add', value: badVal, hit: false, id: i };
-                gateGroup.add(badGate);
-                gates.push(badGate);
             }
+
+            // 初始化 Boss
+            const bossZ = -(CONFIG.gateTotal * CONFIG.gateSpacing) - 60;
+            const bossGeo = new THREE.BoxGeometry(12, 20, 8);
+            const bossMat = new THREE.MeshStandardMaterial({ color: 0xff0055 }); // 紅色 Boss
+            bossRef = new THREE.Mesh(bossGeo, bossMat);
+            bossRef.position.set(0, 10, bossZ);
+            scene.add(bossRef);
+
+            // Boss 的站立平台
+            const platform = new THREE.Mesh(
+                new THREE.CylinderGeometry(20, 20, 1, 32),
+                new THREE.MeshStandardMaterial({ color: 0x550000 })
+            );
+            platform.position.set(0, -0.5, bossZ);
+            scene.add(platform);
         }
-        generateLevel();
 
-        // --- Boss 系統 ---
-        let boss;
-        let currentBossHP = CONFIG.bossHP;
-        const bossZ = -(CONFIG.gateCount * CONFIG.gateInterval) - 40; // 在最後一道門之後
+        initLevel();
 
-        function initBoss() {
-            const geo = new THREE.BoxGeometry(10, 20, 10);
-            const mat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-            boss = new THREE.Mesh(geo, mat);
-            boss.position.set(0, 10, bossZ);
-            scene.add(boss);
-
-            // Boss 的地板裝飾
-            const zoneGeo = new THREE.CircleGeometry(20, 32);
-            const zoneMat = new THREE.MeshBasicMaterial({ color: 0x550000 });
-            const zone = new THREE.Mesh(zoneGeo, zoneMat);
-            zone.rotation.x = -Math.PI/2;
-            zone.position.set(0, 0.1, bossZ);
-            scene.add(zone);
+        // ================= 輸入控制 =================
+        function handleInput(x) {
+            if (gameState !== 'RUNNING') return;
+            // 歸一化 -1 ~ 1
+            const normalized = (x / window.innerWidth) * 2 - 1;
+            // 映射到跑道寬度
+            targetX = normalized * 10; 
         }
-        initBoss();
 
-        // --- 輸入控制 ---
-        function onInput(x) {
-            if (state !== 'RUNNING') return;
-            const ndc = (x / window.innerWidth) * 2 - 1; // -1 to 1
-            targetX = ndc * (CONFIG.laneWidth / 2);
-        }
-        document.addEventListener('mousemove', e => onInput(e.clientX));
-        document.addEventListener('touchmove', e => onInput(e.touches[0].clientX));
+        window.addEventListener('mousemove', e => handleInput(e.clientX));
+        window.addEventListener('touchmove', e => handleInput(e.touches[0].clientX));
 
-        // --- 遊戲邏輯 ---
+        // ================= 核心邏輯 =================
 
-        function updateMobFormation() {
-            // 根據人數決定隊伍半徑
-            let radius = Math.sqrt(mobCount) * 0.15;
-            if (radius < 2) radius = 2;
-            if (radius > CONFIG.laneWidth / 2) radius = CONFIG.laneWidth / 2; // 限制寬度
+        function updateMob() {
+            // 計算隊伍半徑 (人越多，隊伍越大，但有上限)
+            let formationRadius = Math.sqrt(mobCount) * 0.3;
+            if (formationRadius < 2) formationRadius = 2;
+            if (formationRadius > 8) formationRadius = 8; // 不要超過跑道太寬
 
-            let visibleCount = 0;
-            for (let i = 0; i < CONFIG.maxInstances; i++) {
+            let count = 0;
+
+            for (let i = 0; i < CONFIG.maxCount; i++) {
                 if (i < mobCount) {
-                    if (state === 'RUNNING') {
-                        // 跑酷模式：跟隨玩家 X，Z 軸固定相對位置
-                        const ox = offsets[i].x * radius;
-                        const oz = offsets[i].z * radius;
+                    // 如果是跑酷狀態
+                    if (gameState === 'RUNNING') {
+                        // 計算目標位置 (Player位置 + 該單位的偏移)
+                        const tx = playerX + mobOffsets[i].x * formationRadius;
+                        const tz = playerZ + mobOffsets[i].z * formationRadius;
                         
-                        dummy.position.set(
-                            playerX + ox, 
-                            0, 
-                            playerZ + oz
-                        );
-                        dummy.rotation.x = -0.2; // 跑步前傾
-                        dummy.rotation.z = 0;
-                    } else if (state === 'BOSS_FIGHT' && !offsets[i].dead) {
-                        // Boss 戰模式：衝向 Boss
-                        // 計算目前位置
-                        let currX = playerX + offsets[i].x * radius; // 凍結時的 X
-                        let currZ = playerZ + offsets[i].z * radius; // 凍結時的 Z
+                        dummy.position.set(tx, 0, tz);
+                        dummy.rotation.set(0, 0, 0); // 重置旋轉
+                        dummy.scale.set(1, 1, 1);
+                    } 
+                    // 如果是打王狀態
+                    else if (gameState === 'BOSS') {
+                        // 讓粒子飛向 Boss
+                        const speed = mobOffsets[i].speed;
+                        // 當前的 Z 軸位置
+                        dummy.position.z -= speed * 2; // 快速衝刺
                         
-                        // 簡單模擬：讓它們每幀往 Boss 靠近
-                        // 為了效能，我們這裡做一個簡單的視覺欺騙
-                        // 實際上我們只更新 dummy 的位置往 Boss 飛去
-                        
-                        // 重新計算當前小人的位置 (這裡簡化，假設他們從隊伍中心出發)
-                        // 為了讓動畫好看，我們需要記錄每個小人的當前世界座標，這比較複雜
-                        // 這裡使用簡化算法：隨機從前方發射
-                        
-                        const speed = 1.5;
-                        const distToBoss = Math.abs(bossZ - playerZ);
-                        // 讓小人隨時間往前飛
-                        // 這裡使用 offsets[i].speed 作為時間偏移
-                        
-                        // 簡單處理：小人保持在原地，但不斷往 Z 軸深處衝
-                        dummy.position.set(
-                            (Math.random()-0.5) * 10, // 亂竄
-                            0,
-                            bossZ + 15 + Math.random() * 20 // 圍繞在 Boss 前
-                        );
-                    } else {
-                        // 死了或不該顯示
-                         dummy.position.set(0, -100, 0);
+                        // 簡單的導引：X軸逐漸歸零
+                        dummy.position.x *= 0.95; 
+
+                        // 旋轉效果
+                        dummy.rotation.x += 0.2;
+
+                        // 如果衝過頭了 (撞到 Boss)
+                        if (dummy.position.z < bossRef.position.z + 5) {
+                            dummy.position.set(0, -500, 0); // 隱藏
+                            dummy.scale.set(0,0,0);
+                        }
                     }
-                    
+
                     dummy.updateMatrix();
-                    mesh.setMatrixAt(i, dummy.matrix);
-                    visibleCount++;
+                    mobMesh.setMatrixAt(i, dummy.matrix);
+                    count++;
                 } else {
-                    // 隱藏多餘的
-                    dummy.position.set(0, -500, 0); // 移到更遠的地方
+                    // 隱藏未激活的單位
+                    dummy.position.set(0, -1000, 0);
                     dummy.updateMatrix();
-                    mesh.setMatrixAt(i, dummy.matrix);
+                    mobMesh.setMatrixAt(i, dummy.matrix);
                 }
             }
-            mesh.instanceMatrix.needsUpdate = true;
+            mobMesh.instanceMatrix.needsUpdate = true;
         }
 
-        // 專門處理 Boss 戰的動畫
-        let attackTimer = 0;
-        function updateBossFight() {
-            if (state !== 'BOSS_FIGHT') return;
+        function checkCollisions() {
+            // 檢查閘門
+            for (let gate of gates) {
+                if (gate.userData.hit) continue; // 已經撞過的忽略
 
-            // 調整相機視角
-            camera.position.x += (20 - camera.position.x) * 0.05;
-            camera.position.z = bossZ + 60;
-            camera.position.y = 30;
-            camera.lookAt(0, 5, bossZ);
+                // 簡單的 AABB 檢測
+                // 判斷 Z 軸是否穿過
+                const zDist = Math.abs(gate.position.z - playerZ);
+                
+                if (zDist < 2) { // 玩家穿過閘門平面
+                    // 判斷 X 軸是否對準 (門寬約6，給一點容錯)
+                    const xDist = Math.abs(gate.position.x - playerX);
+                    
+                    if (xDist < 3.5) {
+                        // ★ 撞到了！
+                        const type = gate.userData.type;
+                        const val = gate.userData.val;
 
-            // 攻擊邏輯
-            attackTimer++;
-            const attackRate = 5; // 每幾幀攻擊一次
+                        let newCount = mobCount;
+                        if (type === 'add') newCount += val;
+                        if (type === 'mult') newCount *= val;
+
+                        // 限制上限
+                        if (newCount > CONFIG.maxCount) newCount = CONFIG.maxCount;
+                        
+                        mobCount = Math.floor(newCount);
+                        
+                        // UI更新
+                        uiCount.innerText = mobCount;
+                        uiCount.style.transform = "scale(1.5)"; // 彈跳效果
+                        setTimeout(() => uiCount.style.transform = "scale(1)", 100);
+
+                        // 標記並隱藏閘門
+                        gate.userData.hit = true;
+                        gate.visible = false;
+                    }
+                }
+            }
+
+            // 檢查是否到達 Boss 區域
+            if (playerZ < bossRef.position.z + 80 && gameState === 'RUNNING') {
+                startBossFight();
+            }
+        }
+
+        function startBossFight() {
+            gameState = 'BOSS';
+            uiBossHud.style.display = 'block';
+            uiProgress.innerText = "ATTACK!!";
             
-            // 每次攻擊讓一定數量的小人衝上去 "自殺" 換取傷害
-            const unitsPerWave = Math.floor(mobCount / 50) + 1; // 人越多攻速越快
+            // 初始化所有粒子在目前玩家位置，準備衝鋒
+            // 這裡不需要額外做，因為 updateMob 會處理 currentMatrix
+        }
+
+        function updateBossLogic() {
+            if (mobCount <= 0 && bossCurrentHP > 0) {
+                endGame(false);
+                return;
+            }
+            if (bossCurrentHP <= 0) {
+                endGame(true);
+                return;
+            }
+
+            // 計算傷害
+            // 每一幀讓一定數量的人撞上 Boss
+            // 為了視覺效果，我們假設每幀有 2% 的人撞上去
+            const attackers = Math.ceil(mobCount * 0.05) + 1;
             
-            if (mobCount > 0 && currentBossHP > 0) {
-                mobCount -= unitsPerWave;
+            if (mobCount > 0) {
+                mobCount -= attackers;
                 if (mobCount < 0) mobCount = 0;
                 
                 // 扣血
-                const damage = unitsPerWave * 10; // 為了視覺效果，每波扣多一點
-                // 精確計算：總傷害 = 總人數 * 0.3
-                // 這裡模擬：每幀扣除 (0.3) * unitsPerWave
-                currentBossHP -= unitsPerWave * CONFIG.damagePerUnit;
-                
-                // Boss 受傷動畫 (變白)
-                if (Math.random() > 0.5) boss.material.color.setHex(0xffffff);
-                else boss.material.color.setHex(0xff0000);
+                const dmg = attackers * CONFIG.damagePerUnit * 5; // 加速扣血節奏
+                bossCurrentHP -= dmg;
 
                 // 更新 UI
-                document.getElementById('mob-count').innerText = mobCount;
-                const hpPercent = (currentBossHP / CONFIG.bossHP) * 100;
-                document.getElementById('boss-hp-fill').style.width = hpPercent + "%";
-            } else {
-                boss.material.color.setHex(0xff0000);
-            }
+                uiCount.innerText = mobCount;
+                const pct = Math.max(0, (bossCurrentHP / CONFIG.bossHP) * 100);
+                uiBossFill.style.width = pct + "%";
 
-            // 判定勝負
-            if (currentBossHP <= 0) {
-                state = 'ENDED';
-                document.getElementById('game-over').innerText = "VICTORY!";
-                document.getElementById('game-over').style.display = "block";
-                document.getElementById('game-over').style.color = "#00ff00";
-                boss.visible = false; // Boss 消失
-            } else if (mobCount <= 0) {
-                state = 'ENDED';
-                document.getElementById('game-over').innerText = "DEFEAT...";
-                document.getElementById('game-over').style.display = "block";
-                document.getElementById('game-over').style.color = "red";
+                // Boss 受擊閃爍
+                if (Math.random() > 0.5) {
+                    bossRef.material.color.setHex(0xffffff);
+                } else {
+                    bossRef.material.color.setHex(0xff0055);
+                }
             }
         }
 
+        function endGame(victory) {
+            gameState = 'OVER';
+            uiEndScreen.style.display = 'block';
+            if (victory) {
+                uiEndTitle.innerText = "VICTORY!";
+                uiEndTitle.className = "victory";
+                bossRef.visible = false; // Boss 死亡消失
+            } else {
+                uiEndTitle.innerText = "DEFEAT";
+                uiEndTitle.className = "defeat";
+            }
+        }
+
+        // ================= 主循環 =================
         function animate() {
             requestAnimationFrame(animate);
 
-            if (state === 'RUNNING') {
-                // 1. 移動
+            if (gameState === 'RUNNING') {
+                // 玩家移動
                 playerZ -= CONFIG.runSpeed;
-                playerX += (targetX - playerX) * 0.1;
+                playerX += (targetX - playerX) * 0.1; // 平滑 X 移動
 
-                // 地板跟隨 (無限延伸感)
+                // 地板跟隨 (無限滾動錯覺)
+                gridHelper.position.z = playerZ;
                 floor.position.z = playerZ;
 
                 // 相機跟隨
-                camera.position.z = playerZ + 25;
-                camera.position.x = playerX * 0.3;
+                camera.position.z = playerZ + 30;
+                camera.position.x = playerX * 0.5; // 稍微跟隨左右
+                camera.position.y = 15;
+                camera.lookAt(playerX * 0.2, 0, playerZ - 20);
 
-                // 2. 檢測門的碰撞
-                // 優化：只檢查最近的門
-                for (let g of gates) {
-                    if (!g.userData.hit) {
-                        // Z 軸距離接近
-                        if (Math.abs(g.position.z - playerZ) < 1) {
-                            // X 軸距離接近 (寬度約6)
-                            if (Math.abs(g.position.x - playerX) < 3.5) {
-                                // 觸發效果
-                                const type = g.userData.type;
-                                const val = g.userData.value;
-                                
-                                let newCount = mobCount;
-                                if (type === 'add') newCount += val;
-                                if (type === 'mult') newCount *= val;
-                                
-                                if (newCount > CONFIG.maxInstances) newCount = CONFIG.maxInstances;
-                                mobCount = Math.floor(newCount);
-                                
-                                // UI 更新
-                                document.getElementById('mob-count').innerText = mobCount;
-                                
-                                // 標記這對門都已失效 (防止重複撞)
-                                const pairId = g.userData.id;
-                                gates.forEach(og => { if(og.userData.id === pairId) { og.userData.hit = true; og.visible = false; }});
-                            }
-                        }
-                    }
-                }
+                checkCollisions();
+                updateMob();
 
-                // 3. 檢測是否到達 Boss
-                if (playerZ < bossZ + 30) {
-                    state = 'BOSS_FIGHT';
-                    document.getElementById('boss-ui').style.display = 'block';
-                }
+            } else if (gameState === 'BOSS') {
+                // Boss 戰相機位置
+                camera.position.z += (bossRef.position.z + 60 - camera.position.z) * 0.05;
+                camera.position.y += (30 - camera.position.y) * 0.05;
+                camera.position.x += (0 - camera.position.x) * 0.05;
+                camera.lookAt(0, 5, bossRef.position.z);
 
-                updateMobFormation();
-            } else if (state === 'BOSS_FIGHT') {
-                updateBossFight();
-                // 在 Boss 戰中，updateMobFormation 需要特殊處理或停止標準更新
-                // 這裡我們簡單地讓它顯示最後的人數，具體攻擊動畫在 updateBossFight 模擬
+                updateMob(); // 處理衝鋒動畫
+                updateBossLogic(); // 處理扣血
             }
-            
+
             renderer.render(scene, camera);
         }
 
@@ -448,6 +509,7 @@
         });
 
         animate();
+
     </script>
 </body>
 </html>
