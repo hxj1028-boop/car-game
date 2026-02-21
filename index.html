@@ -1,515 +1,255 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Mob Run: Single Gate Hardcore</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>蘆洲九勝山 先天玉旨玄保宮 | 官方介紹網站</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { margin: 0; overflow: hidden; background-color: #1a1a2e; font-family: 'Arial Black', sans-serif; }
-        
-        /* 遊戲介面 UI */
-        #ui-layer {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
+        :root {
+            --primary-red: #8b0000;
+            --gold: #d4af37;
+            --dark-gray: #333;
+            --light-bg: #f9f9f9;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft JhengHei", sans-serif;
+        }
+
+        body {
+            line-height: 1.6;
+            color: var(--dark-gray);
+            background-color: var(--light-bg);
+        }
+
+        /* Header & Navigation */
+        header {
+            background-color: var(--primary-red);
+            color: white;
+            padding: 1rem 0;
+            text-align: center;
+            border-bottom: 4px solid var(--gold);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://lh3.googleusercontent.com/gps-cs-s/AHVAweokiU4rEb2-sQktPQDWCQF5rGQyltO_SXV_VhyQkDVUo8S947HOzBT1jyb_1wAp91vI0Wjk5-82btGrdBYCZU0OAvd5J1U0wNNjHjhSaClMmEICfIC1XDdYlTbqz0b7hSzcQIcR=w203-h152-k-no');
+            background-size: cover;
+            background-position: center;
+            height: 60vh;
             display: flex;
-            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+
+        .hero-content h2 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Main Content Containers */
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 20px;
+        }
+
+        section {
+            margin-bottom: 4rem;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        h3 {
+            color: var(--primary-red);
+            border-left: 5px solid var(--gold);
+            padding-left: 15px;
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+        }
+
+        /* Deity Image Styling */
+        .deity-box {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
             align-items: center;
         }
 
-        #count-display {
-            margin-top: 30px;
-            font-size: 60px;
-            color: #00fff2;
-            text-shadow: 0 0 15px #00fff2;
-        }
-
-        #level-progress {
-            margin-top: 10px;
-            font-size: 18px;
-            color: rgba(255,255,255,0.7);
-        }
-
-        /* Boss 血條區域 */
-        #boss-hud {
-            display: none; /* 戰鬥開始才顯示 */
-            position: absolute;
-            top: 150px;
-            width: 60%;
+        .deity-image {
+            flex: 1;
+            min-width: 300px;
             text-align: center;
         }
-        
-        #boss-hp-bar {
+
+        .deity-image img {
             width: 100%;
-            height: 40px;
-            background: #444;
-            border: 4px solid #fff;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            max-width: 450px;
+            border-radius: 10px;
+            border: 5px solid var(--gold);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
         }
 
-        #boss-hp-fill {
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, #ff0055, #ff5500);
-            transition: width 0.2s;
+        .deity-text {
+            flex: 1;
+            min-width: 300px;
         }
 
-        #boss-text {
-            color: #ff0055;
-            font-size: 30px;
-            margin-bottom: 10px;
-            text-shadow: 0 0 10px #ff0055;
+        /* Services Grid */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
         }
 
-        /* 遊戲結束文字 */
-        #end-screen {
-            display: none;
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
+        .service-card {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 1.5rem;
             text-align: center;
-            z-index: 100;
+            transition: transform 0.3s;
         }
-        
-        #end-title {
-            font-size: 80px;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-        }
-        
-        .victory { color: #00ff00; text-shadow: 0 0 30px #00ff00; }
-        .defeat { color: #ff0000; text-shadow: 0 0 30px #ff0000; }
 
-        #restart-btn {
-            background: white; color: black; padding: 15px 40px;
-            font-size: 24px; border: none; cursor: pointer; pointer-events: auto;
-            border-radius: 5px;
+        .service-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--gold);
+        }
+
+        .service-card i {
+            font-size: 2.5rem;
+            color: var(--primary-red);
+            margin-bottom: 1rem;
+        }
+
+        /* Map Section */
+        .map-container {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .btn-map {
+            display: inline-block;
+            background-color: var(--primary-red);
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .btn-map:hover {
+            background-color: #5a0000;
+            transform: scale(1.05);
+        }
+
+        footer {
+            background: var(--dark-gray);
+            color: white;
+            text-align: center;
+            padding: 2rem 0;
+            margin-top: 3rem;
+        }
+
+        @media (max-width: 768px) {
+            .hero-content h2 { font-size: 2rem; }
+            .deity-box { flex-direction: column; }
         }
     </style>
-    
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-            }
-        }
-    </script>
 </head>
 <body>
 
-    <div id="ui-layer">
-        <div id="count-display">34</div>
-        <div id="level-progress">即將抵達 BOSS...</div>
-        
-        <div id="boss-hud">
-            <div id="boss-text">MEGA BOSS</div>
-            <div id="boss-hp-bar"><div id="boss-hp-fill"></div></div>
-        </div>
+<header>
+    <h1>九勝山 先天玉旨玄保宮</h1>
+    <p>傳承信仰 · 慈悲救世</p>
+</header>
 
-        <div id="end-screen">
-            <div id="end-title"></div>
-            <button id="restart-btn" onclick="location.reload()">RETRY</button>
-        </div>
+<div class="hero">
+    <div class="hero-content">
+        <h2>護佑蘆洲 · 靈感顯赫</h2>
+        <p>先天玉旨承天命，玄保宮中顯神威</p>
     </div>
+</div>
 
-    <script type="module">
-        import * as THREE from 'three';
+<div class="container">
+    
+    <section id="about">
+        <h3><i class="fa-solid fa-temple"></i> 關於玄保宮</h3>
+        <p>蘆洲九勝山先天玉旨玄保宮，自開宮以來，始終秉持著「慈悲為懷、濟世救人」的宗旨，為信眾提供心靈的寄託與神靈的指引。宮廟環境莊嚴肅穆，散發著神聖的氣息，是眾多信徒求平安、尋求人生指引的聖地。</p>
+        <p style="margin-top: 1rem;">我們致力於推廣正信信仰，透過各項祭祀儀式與宗教活動，凝聚社區向心力，並將神明的慈悲散播到每一個角落。</p>
+    </section>
 
-        // ================= 配置參數 =================
-        const CONFIG = {
-            maxCount: 20000,      // 最大支持人數 (GPU優化)
-            startCount: 34,
-            gateTotal: 30,        // 30 扇門
-            gateSpacing: 60,      // 每扇門的距離 (拉長一點，避免太擁擠)
-            laneWidth: 20,        // 跑道總寬度
-            runSpeed: 0.8,        // 前進速度
-            bossHP: 2000,         // Boss 血量
-            damagePerUnit: 0.3    // 一個人造成的傷害
-        };
+    <section id="deity">
+        <h3><i class="fa-solid fa-sun"></i> 主祀神明：無府三王爺</h3>
+        <div class="deity-box">
+            <div class="deity-image">
+                <img src="https://lh3.googleusercontent.com/p/AF1QipOxN31GLhxlp2txRiB7X5IJeh5ecHMsy_4JfEd9=w203-h135-k-no" alt="無府三王爺聖像">
+                <p style="margin-top: 10px; color: #666; font-style: italic;">無府三王爺 聖像</p>
+            </div>
+            <div class="deity-text">
+                <p><strong>無府三王爺</strong>，威靈顯赫，聖德昭彰。王爺公以其強大的法力與慈悲的心腸，守護著一方百姓的平安。無論是信眾面臨事業困境、身體健康問題，或是家庭運勢的波折，只要誠心祈求，王爺公必能感應，賜予信眾智慧與力量。</p>
+                <p style="margin-top: 1rem;">本宮三王爺特別以「斷災解厄」與「指引迷津」著稱，其聖蹟流傳於鄉里之間，深受廣大信徒的敬仰與推崇。</p>
+            </div>
+        </div>
+    </section>
 
-        // ================= 遊戲狀態 =================
-        let gameState = 'RUNNING'; // 'RUNNING', 'BOSS', 'OVER'
-        let mobCount = CONFIG.startCount;
-        let playerZ = 0;
-        let playerX = 0;
-        let targetX = 0;
-        let bossRef = null;
-        let bossCurrentHP = CONFIG.bossHP;
+    <section id="services">
+        <h3><i class="fa-solid fa-hands-praying"></i> 弘法服務</h3>
+        <div class="services-grid">
+            <div class="service-card">
+                <i class="fa-solid fa-fire"></i>
+                <h4>消災解厄</h4>
+                <p>協助信眾化解流年不利、度過人生難關。</p>
+            </div>
+            <div class="service-card">
+                <i class="fa-solid fa-leaf"></i>
+                <h4>收驚安神</h4>
+                <p>針對驚嚇不寧、幼童夜啼提供傳統收驚服務。</p>
+            </div>
+            <div class="service-card">
+                <i class="fa-solid fa-comment-dots"></i>
+                <h4>問事指引</h4>
+                <p>由王爺公聖示，解答事業、家運、身體之疑惑。</p>
+            </div>
+            <div class="service-card">
+                <i class="fa-solid fa-lightbulb"></i>
+                <h4>點燈祈福</h4>
+                <p>光明燈、平安燈服務，照亮未來前程。</p>
+            </div>
+        </div>
+    </section>
 
-        // UI 元素
-        const uiCount = document.getElementById('count-display');
-        const uiProgress = document.getElementById('level-progress');
-        const uiBossHud = document.getElementById('boss-hud');
-        const uiBossFill = document.getElementById('boss-hp-fill');
-        const uiEndScreen = document.getElementById('end-screen');
-        const uiEndTitle = document.getElementById('end-title');
+    <section id="contact">
+        <h3><i class="fa-solid fa-location-dot"></i> 蒞臨參香</h3>
+        <div class="map-container">
+            <p style="margin-bottom: 1.5rem;">誠摯歡迎各界善信大德蒞臨本宮參香指導，共沐神恩。</p>
+            <p><strong>地址：</strong> 新北市蘆洲區九勝山 (詳細地址請參考地圖)</p>
+            <br>
+            <a href="https://maps.app.goo.gl/m3tbwV7Xkj9qTfJs5" class="btn-map" target="_blank">
+                <i class="fa-solid fa-map-location-dot"></i> 開啟 Google 地圖導航
+            </a>
+        </div>
+    </section>
 
-        // ================= THREE.JS 場景設置 =================
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x1a1a2e);
-        scene.fog = new THREE.Fog(0x1a1a2e, 40, 120);
+</div>
 
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 300);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        document.body.appendChild(renderer.domElement);
+<footer>
+    <p>&copy; 2024 蘆洲九勝山 先天玉旨玄保宮 版權所有</p>
+    <p style="font-size: 0.8rem; margin-top: 0.5rem; color: #aaa;">神光普照 · 平安喜樂</p>
+</footer>
 
-        // 燈光
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0x00fff2, 1.5); // 霓虹藍光
-        dirLight.position.set(20, 50, 20);
-        dirLight.castShadow = true;
-        scene.add(dirLight);
-
-        // 地板 (Grid 風格)
-        const gridHelper = new THREE.GridHelper(200, 50, 0x00fff2, 0x333333);
-        gridHelper.position.y = 0;
-        scene.add(gridHelper);
-        
-        // 實體地板 (接收陰影)
-        const floorGeo = new THREE.PlaneGeometry(200, 1000);
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        floor.position.z = -200; // 稍微往前放
-        floor.receiveShadow = true;
-        scene.add(floor);
-
-        // ================= 人群系統 (InstancedMesh) =================
-        // 這是解決效能與消失問題的關鍵
-        const mobGeo = new THREE.CylinderGeometry(0.2, 0.2, 1, 8);
-        mobGeo.translate(0, 0.5, 0); // 調整中心點
-        const mobMat = new THREE.MeshLambertMaterial({ color: 0x00fff2 });
-        const mobMesh = new THREE.InstancedMesh(mobGeo, mobMat, CONFIG.maxCount);
-        
-        // ★★★ 關鍵修復：關閉視錐體剔除，防止消失 ★★★
-        mobMesh.frustumCulled = false; 
-        
-        mobMesh.castShadow = true;
-        scene.add(mobMesh);
-
-        // 預先計算每個單位的隨機偏移 (圓形分佈)
-        const mobOffsets = [];
-        for (let i = 0; i < CONFIG.maxCount; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const r = Math.sqrt(Math.random()) * 0.8; // 0.8 是基礎半徑係數
-            mobOffsets.push({ 
-                x: Math.cos(angle) * r, 
-                z: Math.sin(angle) * r,
-                speed: 1 + Math.random(), // 攻擊時的飛行速度
-                active: i < CONFIG.startCount
-            });
-        }
-
-        const dummy = new THREE.Object3D();
-
-        // ================= 閘門系統 (單一門) =================
-        const gates = [];
-        const gateGroup = new THREE.Group();
-        scene.add(gateGroup);
-
-        function createGateTexture(text) {
-            const cvs = document.createElement('canvas');
-            cvs.width = 256; cvs.height = 128;
-            const ctx = cvs.getContext('2d');
-            
-            // 漸層背景
-            const grad = ctx.createLinearGradient(0,0,0,128);
-            grad.addColorStop(0, 'rgba(0, 255, 242, 0.8)');
-            grad.addColorStop(1, 'rgba(0, 100, 200, 0.4)');
-            
-            ctx.fillStyle = grad;
-            ctx.fillRect(0,0,256,128);
-            
-            // 文字
-            ctx.fillStyle = "white";
-            ctx.font = "bold 90px Arial";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(text, 128, 64);
-            
-            // 邊框
-            ctx.lineWidth = 8;
-            ctx.strokeStyle = "white";
-            ctx.strokeRect(0,0,256,128);
-
-            return new THREE.CanvasTexture(cvs);
-        }
-
-        function initLevel() {
-            for (let i = 1; i <= CONFIG.gateTotal; i++) {
-                // Z位置：每隔 gateSpacing 出現一個
-                const zPos = -i * CONFIG.gateSpacing;
-                
-                // 數值生成邏輯：越後面越難/倍率越高
-                let type = Math.random() > 0.4 ? 'mult' : 'add';
-                let val;
-                let text;
-
-                if (type === 'mult') {
-                    val = Math.floor(Math.random() * 3) + 2; // x2, x3, x4
-                    text = "x" + val;
-                } else {
-                    val = Math.floor(Math.random() * 50) + 20; // +20 ~ +70
-                    text = "+" + val;
-                }
-
-                const geo = new THREE.BoxGeometry(6, 4, 0.5);
-                const mat = new THREE.MeshBasicMaterial({ 
-                    map: createGateTexture(text),
-                    transparent: true,
-                    opacity: 0.9
-                });
-                const gate = new THREE.Mesh(geo, mat);
-
-                // X位置：隨機分配在 左(-5), 中(0), 右(5)
-                const lane = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
-                gate.position.set(lane * 5, 2, zPos);
-                
-                gate.userData = { type: type, val: val, hit: false };
-                gateGroup.add(gate);
-                gates.push(gate);
-            }
-
-            // 初始化 Boss
-            const bossZ = -(CONFIG.gateTotal * CONFIG.gateSpacing) - 60;
-            const bossGeo = new THREE.BoxGeometry(12, 20, 8);
-            const bossMat = new THREE.MeshStandardMaterial({ color: 0xff0055 }); // 紅色 Boss
-            bossRef = new THREE.Mesh(bossGeo, bossMat);
-            bossRef.position.set(0, 10, bossZ);
-            scene.add(bossRef);
-
-            // Boss 的站立平台
-            const platform = new THREE.Mesh(
-                new THREE.CylinderGeometry(20, 20, 1, 32),
-                new THREE.MeshStandardMaterial({ color: 0x550000 })
-            );
-            platform.position.set(0, -0.5, bossZ);
-            scene.add(platform);
-        }
-
-        initLevel();
-
-        // ================= 輸入控制 =================
-        function handleInput(x) {
-            if (gameState !== 'RUNNING') return;
-            // 歸一化 -1 ~ 1
-            const normalized = (x / window.innerWidth) * 2 - 1;
-            // 映射到跑道寬度
-            targetX = normalized * 10; 
-        }
-
-        window.addEventListener('mousemove', e => handleInput(e.clientX));
-        window.addEventListener('touchmove', e => handleInput(e.touches[0].clientX));
-
-        // ================= 核心邏輯 =================
-
-        function updateMob() {
-            // 計算隊伍半徑 (人越多，隊伍越大，但有上限)
-            let formationRadius = Math.sqrt(mobCount) * 0.3;
-            if (formationRadius < 2) formationRadius = 2;
-            if (formationRadius > 8) formationRadius = 8; // 不要超過跑道太寬
-
-            let count = 0;
-
-            for (let i = 0; i < CONFIG.maxCount; i++) {
-                if (i < mobCount) {
-                    // 如果是跑酷狀態
-                    if (gameState === 'RUNNING') {
-                        // 計算目標位置 (Player位置 + 該單位的偏移)
-                        const tx = playerX + mobOffsets[i].x * formationRadius;
-                        const tz = playerZ + mobOffsets[i].z * formationRadius;
-                        
-                        dummy.position.set(tx, 0, tz);
-                        dummy.rotation.set(0, 0, 0); // 重置旋轉
-                        dummy.scale.set(1, 1, 1);
-                    } 
-                    // 如果是打王狀態
-                    else if (gameState === 'BOSS') {
-                        // 讓粒子飛向 Boss
-                        const speed = mobOffsets[i].speed;
-                        // 當前的 Z 軸位置
-                        dummy.position.z -= speed * 2; // 快速衝刺
-                        
-                        // 簡單的導引：X軸逐漸歸零
-                        dummy.position.x *= 0.95; 
-
-                        // 旋轉效果
-                        dummy.rotation.x += 0.2;
-
-                        // 如果衝過頭了 (撞到 Boss)
-                        if (dummy.position.z < bossRef.position.z + 5) {
-                            dummy.position.set(0, -500, 0); // 隱藏
-                            dummy.scale.set(0,0,0);
-                        }
-                    }
-
-                    dummy.updateMatrix();
-                    mobMesh.setMatrixAt(i, dummy.matrix);
-                    count++;
-                } else {
-                    // 隱藏未激活的單位
-                    dummy.position.set(0, -1000, 0);
-                    dummy.updateMatrix();
-                    mobMesh.setMatrixAt(i, dummy.matrix);
-                }
-            }
-            mobMesh.instanceMatrix.needsUpdate = true;
-        }
-
-        function checkCollisions() {
-            // 檢查閘門
-            for (let gate of gates) {
-                if (gate.userData.hit) continue; // 已經撞過的忽略
-
-                // 簡單的 AABB 檢測
-                // 判斷 Z 軸是否穿過
-                const zDist = Math.abs(gate.position.z - playerZ);
-                
-                if (zDist < 2) { // 玩家穿過閘門平面
-                    // 判斷 X 軸是否對準 (門寬約6，給一點容錯)
-                    const xDist = Math.abs(gate.position.x - playerX);
-                    
-                    if (xDist < 3.5) {
-                        // ★ 撞到了！
-                        const type = gate.userData.type;
-                        const val = gate.userData.val;
-
-                        let newCount = mobCount;
-                        if (type === 'add') newCount += val;
-                        if (type === 'mult') newCount *= val;
-
-                        // 限制上限
-                        if (newCount > CONFIG.maxCount) newCount = CONFIG.maxCount;
-                        
-                        mobCount = Math.floor(newCount);
-                        
-                        // UI更新
-                        uiCount.innerText = mobCount;
-                        uiCount.style.transform = "scale(1.5)"; // 彈跳效果
-                        setTimeout(() => uiCount.style.transform = "scale(1)", 100);
-
-                        // 標記並隱藏閘門
-                        gate.userData.hit = true;
-                        gate.visible = false;
-                    }
-                }
-            }
-
-            // 檢查是否到達 Boss 區域
-            if (playerZ < bossRef.position.z + 80 && gameState === 'RUNNING') {
-                startBossFight();
-            }
-        }
-
-        function startBossFight() {
-            gameState = 'BOSS';
-            uiBossHud.style.display = 'block';
-            uiProgress.innerText = "ATTACK!!";
-            
-            // 初始化所有粒子在目前玩家位置，準備衝鋒
-            // 這裡不需要額外做，因為 updateMob 會處理 currentMatrix
-        }
-
-        function updateBossLogic() {
-            if (mobCount <= 0 && bossCurrentHP > 0) {
-                endGame(false);
-                return;
-            }
-            if (bossCurrentHP <= 0) {
-                endGame(true);
-                return;
-            }
-
-            // 計算傷害
-            // 每一幀讓一定數量的人撞上 Boss
-            // 為了視覺效果，我們假設每幀有 2% 的人撞上去
-            const attackers = Math.ceil(mobCount * 0.05) + 1;
-            
-            if (mobCount > 0) {
-                mobCount -= attackers;
-                if (mobCount < 0) mobCount = 0;
-                
-                // 扣血
-                const dmg = attackers * CONFIG.damagePerUnit * 5; // 加速扣血節奏
-                bossCurrentHP -= dmg;
-
-                // 更新 UI
-                uiCount.innerText = mobCount;
-                const pct = Math.max(0, (bossCurrentHP / CONFIG.bossHP) * 100);
-                uiBossFill.style.width = pct + "%";
-
-                // Boss 受擊閃爍
-                if (Math.random() > 0.5) {
-                    bossRef.material.color.setHex(0xffffff);
-                } else {
-                    bossRef.material.color.setHex(0xff0055);
-                }
-            }
-        }
-
-        function endGame(victory) {
-            gameState = 'OVER';
-            uiEndScreen.style.display = 'block';
-            if (victory) {
-                uiEndTitle.innerText = "VICTORY!";
-                uiEndTitle.className = "victory";
-                bossRef.visible = false; // Boss 死亡消失
-            } else {
-                uiEndTitle.innerText = "DEFEAT";
-                uiEndTitle.className = "defeat";
-            }
-        }
-
-        // ================= 主循環 =================
-        function animate() {
-            requestAnimationFrame(animate);
-
-            if (gameState === 'RUNNING') {
-                // 玩家移動
-                playerZ -= CONFIG.runSpeed;
-                playerX += (targetX - playerX) * 0.1; // 平滑 X 移動
-
-                // 地板跟隨 (無限滾動錯覺)
-                gridHelper.position.z = playerZ;
-                floor.position.z = playerZ;
-
-                // 相機跟隨
-                camera.position.z = playerZ + 30;
-                camera.position.x = playerX * 0.5; // 稍微跟隨左右
-                camera.position.y = 15;
-                camera.lookAt(playerX * 0.2, 0, playerZ - 20);
-
-                checkCollisions();
-                updateMob();
-
-            } else if (gameState === 'BOSS') {
-                // Boss 戰相機位置
-                camera.position.z += (bossRef.position.z + 60 - camera.position.z) * 0.05;
-                camera.position.y += (30 - camera.position.y) * 0.05;
-                camera.position.x += (0 - camera.position.x) * 0.05;
-                camera.lookAt(0, 5, bossRef.position.z);
-
-                updateMob(); // 處理衝鋒動畫
-                updateBossLogic(); // 處理扣血
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        // 視窗調整
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        animate();
-
-    </script>
 </body>
+
 </html>
